@@ -18,7 +18,7 @@ function App() {
     setVehicle(newVehicle);
 
     // Track the vehicle with camera
-    const entity = (newVehicle as any)['entity'] as Cesium.Entity;
+    const entity = newVehicle.getEntity();
     if (entity) {
       viewer.trackedEntity = entity;
     }

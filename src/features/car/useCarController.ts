@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { Vehicle } from '../../cesium/Vehicle';
 
 interface KeyState {
@@ -9,20 +9,17 @@ interface KeyState {
 }
 
 export const useCarController = (vehicle: Vehicle | null) => {
-  const keyState = useCallback(() => {
-    const state: KeyState = {
-      up: false,
-      down: false,
-      left: false,
-      right: false,
-    };
-    return state;
-  }, []);
+  const keyStateRef = useRef<KeyState>({
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+  });
 
   useEffect(() => {
     if (!vehicle) return;
 
-    const keys: KeyState = keyState();
+    const keys = keyStateRef.current;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       switch (event.key) {
@@ -103,5 +100,5 @@ export const useCarController = (vehicle: Vehicle | null) => {
       window.removeEventListener('keyup', handleKeyUp);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [vehicle, keyState]);
+  }, [vehicle]);
 };

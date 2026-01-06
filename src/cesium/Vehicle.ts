@@ -1,4 +1,15 @@
 import * as Cesium from 'cesium';
+import {
+  EARTH_RADIUS_METERS,
+  DEFAULT_START_LONGITUDE,
+  DEFAULT_START_LATITUDE,
+  DEFAULT_START_ALTITUDE,
+  MAX_SPEED_MS,
+  ACCELERATION_RATE,
+  DECELERATION_RATE,
+  NATURAL_DECELERATION,
+  VEHICLE_HEIGHT_OFFSET,
+} from '../utils/constants';
 
 export interface VehicleState {
   position: Cesium.Cartesian3;
@@ -12,18 +23,18 @@ export class Vehicle {
   private state: VehicleState;
   private entity: Cesium.Entity | null = null;
   private viewer: Cesium.Viewer;
-  private readonly maxSpeed = 60; // m/s (~216 km/h)
-  private readonly accelerationRate = 5; // m/s²
-  private readonly decelerationRate = 10; // m/s²
+  private readonly maxSpeed = MAX_SPEED_MS;
+  private readonly accelerationRate = ACCELERATION_RATE;
+  private readonly decelerationRate = DECELERATION_RATE;
 
   constructor(viewer: Cesium.Viewer, initialPosition?: Cesium.Cartesian3) {
     this.viewer = viewer;
     
-    // Default starting position (San Francisco)
+    // Default starting position
     const defaultPosition = Cesium.Cartesian3.fromDegrees(
-      -122.4194,
-      37.7749,
-      100
+      DEFAULT_START_LONGITUDE,
+      DEFAULT_START_LATITUDE,
+      DEFAULT_START_ALTITUDE
     );
 
     this.state = {
@@ -31,7 +42,7 @@ export class Vehicle {
       speed: 0,
       acceleration: 0,
       heading: 0,
-      altitude: 100,
+      altitude: DEFAULT_START_ALTITUDE,
     };
 
     this.createEntity();
@@ -39,7 +50,7 @@ export class Vehicle {
 
   private createEntity(): void {
     this.entity = this.viewer.entities.add({
-      position: new Cesium.CallbackProperty(() => this.state.position, false) as any,
+      position: new Cesium.CallbackProperty(() => this.state.position, false) as unknown as Cesium.PositionProperty,
       orientation: new Cesium.CallbackProperty(() => {
         const hpr = new Cesium.HeadingPitchRoll(
           Cesium.Math.toRadians(this.state.heading),
@@ -50,7 +61,7 @@ export class Vehicle {
           this.state.position,
           hpr
         );
-      }, false) as any,
+      }, false) as unknown as Cesium.Property,
       model: {
         uri: 'https://raw.githubusercontent.com/CesiumGS/cesium/main/Apps/SampleData/models/GroundVehicle/GroundVehicle.glb',
         minimumPixelSize: 64,
@@ -100,7 +111,7 @@ export class Vehicle {
 
     // Natural deceleration when not accelerating
     if (this.state.acceleration === 0 && this.state.speed > 0) {
-      this.state.speed = Math.max(0, this.state.speed - 0.5 * deltaTime);
+      this.state.speed = Math.max(0, this.state.speed - NATURAL_DECELERATION * deltaTime);
     }
 
     // Update position based on speed and heading
@@ -113,8 +124,8 @@ export class Vehicle {
       
       // Calculate new position
       const newCartographic = new Cesium.Cartographic(
-        cartographic.longitude + (distance * Math.sin(headingRadians)) / (6371000 * Math.cos(cartographic.latitude)),
-        cartographic.latitude + (distance * Math.cos(headingRadians)) / 6371000,
+        cartographic.longitude + (distance * Math.sin(headingRadians)) / (EARTH_RADIUS_METERS * Math.cos(cartographic.latitude)),
+        cartographic.latitude + (distance * Math.cos(headingRadians)) / EARTH_RADIUS_METERS,
         cartographic.height
       );
 
@@ -147,7 +158,7 @@ export class Vehicle {
 
       if (updatedPositions && updatedPositions[0]) {
         // Keep vehicle slightly above terrain
-        this.state.altitude = updatedPositions[0].height + 2;
+        this.state.altitude = updatedPositions[0].height + VEHICLE_HEIGHT_OFFSET;
       }
     } catch (error) {
       console.warn('Failed to sample terrain:', error);
@@ -158,6 +169,10 @@ export class Vehicle {
 
   public getState(): VehicleState {
     return { ...this.state };
+  }
+
+  public getEntity(): Cesium.Entity | null {
+    return this.entity;
   }
 
   public getCartographicPosition(): Cesium.Cartographic {
